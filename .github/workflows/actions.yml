@@ -1,0 +1,152 @@
+name: Assessment
+
+on:
+    pull_request:
+        branches: [master, main]
+
+jobs:
+  ci-pipeline:
+    runs-on: ubuntu-latest
+    container:
+      image:  google/dart:latest
+    steps:
+        - name: Check out repository code
+          uses: actions/checkout@v2
+          with:
+            fetch-depth: 0
+        - name: Install dependencies
+          id: dependencies
+          run: dart pub get
+          continue-on-error: true
+        - name: Failed - Slack Notification
+          if: steps.dependencies.outcome == 'failure'
+          uses: abinoda/slack-action@master
+          env:
+            SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          with:
+            args: '{\"channel\":\"${{ secrets.SLACK_PR_CHANNEL_ID }}\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"##########\n*Pull Request:* ${{ github.repository }}, ${{ github.event.pull_request.title }}\n*Contributor :* ${{ github.event.pull_request.user.login }}\n*Request State:* :sos: Dependencies Failed :sos:\n<${{ github.event.pull_request.html_url }}|View Pull Request>\n##########\"}}]}' 
+        - name: Failed - Close
+          if: steps.dependencies.outcome == 'failure'
+          run: exit 1
+        - name: Format
+          id: formatter
+          run: dart format --output=show --set-exit-if-changed .
+          continue-on-error: true
+        - name: Failed - Slack Notification
+          if: steps.formatter.outcome == 'failure'
+          uses: abinoda/slack-action@master
+          env:
+            SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          with:
+            args: '{\"channel\":\"${{ secrets.SLACK_PR_CHANNEL_ID }}\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"##########\n*Pull Request:* ${{ github.repository }}, ${{ github.event.pull_request.title }}\n*Contributor :* ${{ github.event.pull_request.user.login }}\n*Request State:* :sos: Formatter Failed :sos:\n<${{ github.event.pull_request.html_url }}|View Pull Request>\n##########\"}}]}' 
+        - name: Failed - PR comment
+          if: steps.formatter.outcome == 'failure'
+          uses: actions/github-script@v5
+          with:
+              github-token: ${{secrets.GITHUB_TOKEN}}
+              script: |
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: 'Format error :sos:\n Please check format of your changes. You can use `dart format --fix .` to fix that automatically. Remember to check your bugs by `git diff`. At the end commit your changes and push again.'
+                })
+        - name: Failed - Close
+          if: steps.formatter.outcome == 'failure'
+          run: exit 1
+        - name: Analyze
+          id: analyzer
+          run: dart analyze --fatal-infos
+          continue-on-error: true
+        - name: Failed - Slack Notification
+          if: steps.analyzer.outcome == 'failure'
+          uses: abinoda/slack-action@master
+          env:
+            SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          with:
+            args: '{\"channel\":\"${{ secrets.SLACK_PR_CHANNEL_ID }}\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"##########\n*Pull Request:* ${{ github.repository }}, ${{ github.event.pull_request.title }}\n*Contributor :* ${{ github.event.pull_request.user.login }}\n*Request State:* :sos: Analyzer Failed :sos:\n<${{ github.event.pull_request.html_url }}|View Pull Request>\n##########\"}}]}' 
+        - name: Failed - PR comment
+          if: steps.analyzer.outcome == 'failure'
+          uses: actions/github-script@v5
+          with:
+              github-token: ${{secrets.GITHUB_TOKEN}}
+              script: |
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: 'Analyze error :sos:\n Please check format of your changes. You can use `dart analyze` to check what was wrong. Fix that, commit your changes and push again.'
+                })
+        - name: Failed - Close
+          if: steps.analyzer.outcome == 'failure'
+          run: exit 1
+        - name: Test
+          id: tests
+          run: dart test
+          continue-on-error: true
+        - name: Failed - Slack Notification
+          if: steps.tests.outcome == 'failure'
+          uses: abinoda/slack-action@master
+          env:
+            SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          with:
+            args: '{\"channel\":\"${{ secrets.SLACK_PR_CHANNEL_ID }}\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"##########\n*Pull Request:* ${{ github.repository }}, ${{ github.event.pull_request.title }}\n*Contributor :* ${{ github.event.pull_request.user.login }}\n*Request State:* :sos: Test Failed :sos:\n<${{ github.event.pull_request.html_url }}|View Pull Request>\n##########\"}}]}' 
+        - name: Failed - PR comment
+          if: steps.tests.outcome == 'failure'
+          uses: actions/github-script@v5
+          with:
+              github-token: ${{secrets.GITHUB_TOKEN}}
+              script: |
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: 'Tests error :sos:\n Please check unit tests. You can use `dart test` to check what was wrong. Fix that, commit your changes and push again.'
+                })
+        - name: Failed - Close
+          if: steps.tests.outcome == 'failure'
+          run: exit 1
+        - name: Runner
+          id: runner
+          run: dart run
+          continue-on-error: true
+        - name: Failed - Slack Notification
+          if: steps.runner.outcome == 'failure'
+          uses: abinoda/slack-action@master
+          env:
+            SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          with:
+            args: '{\"channel\":\"${{ secrets.SLACK_PR_CHANNEL_ID }}\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"##########\n*Pull Request:* ${{ github.repository }}, ${{ github.event.pull_request.title }}\n*Contributor :* ${{ github.event.pull_request.user.login }}\n*Request State:* :sos: Runner Failed :sos:\n<${{ github.event.pull_request.html_url }}|View Pull Request>\n##########\"}}]}' 
+        - name: Failed - PR comment
+          if: steps.runner.outcome == 'failure'
+          uses: actions/github-script@v5
+          with:
+              github-token: ${{secrets.GITHUB_TOKEN}}
+              script: |
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: 'Runner error :sos:\n Cannot run your program. Fix that, commit your changes and push again.'
+                })
+        - name: Failed - Close
+          if: steps.runner.outcome == 'failure'
+          run: exit 1
+        - name: Slack Notification
+          uses: abinoda/slack-action@master
+          env:
+            SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          with:
+            args: '{\"channel\":\"${{ secrets.SLACK_PR_CHANNEL_ID }}\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"##########\n*Pull Request:* ${{ github.repository }}, ${{ github.event.pull_request.title }}\n*Contributor :* ${{ github.event.pull_request.user.login }}\n*Request State:* :tada: CI Passed :tada:\n<${{ github.event.pull_request.html_url }}|View Pull Request>\n##########\n\n.\"}}]}' 
+        - name: Success - PR comment
+          uses: actions/github-script@v5
+          with:
+              github-token: ${{secrets.GITHUB_TOKEN}}
+              script: |
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: 'Automatic check passed :tada: \nPlease wait for code review.'
+                })
+      
