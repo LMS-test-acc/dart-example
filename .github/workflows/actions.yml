@@ -22,7 +22,8 @@ jobs:
 
         - name: Test
           id: tests
-          run: dart test simple_test.dart --reporter json > example.jsonl 
+          run: dart pub global activate junitreport
+               dart test simple_test.dart --reporter json > example.jsonl 
                dart pub global run junitreport:tojunit --input example.jsonl --output report.xml
           continue-on-error: true
         - name:  Dump GitHub context
