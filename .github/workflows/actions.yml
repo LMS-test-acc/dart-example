@@ -27,4 +27,4 @@ jobs:
         - name:  Dump GitHub context
           if: steps.tests.outcome == 'failure'
           id: github_context_step
-          run: echo '${{ toJSON(github) }}'
+          run: echo '${{ toJSON(steps.tests.outcome) }}'
