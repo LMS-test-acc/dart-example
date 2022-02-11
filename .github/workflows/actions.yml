@@ -28,3 +28,8 @@ jobs:
           if: steps.tests.outcome == 'failure'
           id: github_context_step
           run: echo '${{ toJSON(steps.tests.outcome) }}'
+        - name: Upload a Build Artifact
+          uses: actions/upload-artifact@v2.3.1
+          with:
+             path: report.xml
+             if-no-files-found: error
